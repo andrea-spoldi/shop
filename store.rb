@@ -4,58 +4,50 @@ require 'rubygems'
 require 'sinatra'
 require 'rest-client'
 require 'json'
+require 'rack-flash'
+require 'lib/auth/auth.rb'
 
 class Store < Sinatra::Base
 
-get '/' do
-	@title = 'shop admin'
-	@sidebar = 'side admin'   
-	erb 'admin'
+use Rack::Flash
+use Auth
+enable :sessions
+
+helpers do
+  def logged_in?(user)
+        token = User.get_token(user)
+        request.cookies[user] == token
+  end 
+  def protected!
+        redirect '/login' unless logged_in?(session[:user])
+  end
 end
 
- ## helpers
 
-  def self.put_or_post(*a, &b)
-    put *a, &b
-    post *a, &b
-  end
+configure do
+  set :public_folder, Proc.new { File.join(root, "static") }
+end
 
-  helpers do
-    def json_status(code, reason)
-      status code
-      {
-        :status => code,
-        :reason => reason
-      }.to_json
-    end
+get '/' do
+	protected!
+	@title = 'shop'
+	@sidebar = 'side'   
+	erb 'ciao'
+end
 
-    def accept_params(params, *fields)
-      h = { }
-      fields.each do |name|
-        h[name] = params[name] if params[name]
-      end
-      h
-    end
-  end
+get '/register' do
+	erb :register
+end
 
-  get "*" do
-    status 404
-  end
+get '/login' do
+	erb :login
+end
 
-  put_or_post "*" do
-    status 404
-  end
-
-  delete "*" do
-    status 404
-  end
-
-  not_found do
-    json_status 404, "Not found"
-  end
-
-  error do
-    json_status 500, env['sinatra.error'].message
-  end
+get '/logout' do
+        @name = session[:user] 
+	response.set_cookie(@name, nil)
+	session[:user] = nil
+redirect '/'
+end
 
 end
